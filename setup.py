@@ -12,6 +12,7 @@ setup(
           'google-cloud-speech',
           'oauth2client',
           'simpleaudio',
-          'pyaudio'
+          'pyaudio',
+          'google-auth'
         ],
     )

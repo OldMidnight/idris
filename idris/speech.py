@@ -4,12 +4,12 @@ import speech_recognition as sr
 import simpleaudio as sa
 from time import sleep
 from random import randint
-from idris.helpers.timer import RepeatingTimer
-from idris.helpers.triggers import *
-from idris.helpers.responses import *
+from idris.utils.timer import RepeatingTimer
+from idris.utils.triggers import *
+from idris.utils.responses import *
+from idris.utils.services import gcloud_json_credentials_path
 from idris.date_time import idris_date_time
-
-gcloud_json_credentials_path = os.environ['GCLOUD_JSON_CREDENTIALS_PATH']
+from idris.idris_calendar import idris_calendar_brief
 
 def debrief_trigger_filter(debrief):
     return debrief
@@ -47,6 +47,7 @@ class Idris():
         elif transcript in DEBREIEF_TRIGGERS and confidence >= 0.8 and self.idris_triggered:
             self.play_response(ACKNOWLEDGEMENT_RESPONSES[DEBREIEF_TRIGGERS[transcript]], True)
             self.play_response(idris_date_time())
+            self.play_response(idris_calendar_brief())
         # GRATITUDE TRIGGER
         elif transcript in GRATITUDE_TRIGGERS and confidence >= 0.8 and self.idris_triggered:
             self.play_response(GRATITUDE_RESPONSES[randint(0,1)])
@@ -69,6 +70,7 @@ class Idris():
 
     def play_response(self, filename, dont_reset=False):
         print('playing response')
+        # print(filename)
         self.playing_response = True
         wave_obj = sa.WaveObject.from_wave_file(filename)
         play_obj = wave_obj.play()
@@ -80,4 +82,3 @@ class Idris():
 
 idris = Idris()
 idris.listen()
-

@@ -1,7 +1,0 @@
-setup.py
-idris/__init__.py
-idris.egg-info/PKG-INFO
-idris.egg-info/SOURCES.txt
-idris.egg-info/dependency_links.txt
-idris.egg-info/not-zip-safe
-idris.egg-info/top_level.txt
