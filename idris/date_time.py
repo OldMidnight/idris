@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import wave
 from datetime import datetime
 
@@ -49,10 +50,10 @@ def idris_date_time():
     input_files = [today, day_audio, month_audio, year_audio, now, hour_audio, minute_audio, f'/home/fareed/Music/Date_Time/{hour_mapping[hour][1]}.wav']
     output_file = '/home/fareed/Music/records/datetime.wav'
 
-    data= []
+    data = []
     for input_file in input_files:
         w = wave.open(input_file, 'rb')
-        data.append( [w.getparams(), w.readframes(w.getnframes())] )
+        data.append([w.getparams(), w.readframes(w.getnframes())])
         w.close()
         
     output = wave.open(output_file, 'wb')

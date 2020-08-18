@@ -3,3 +3,4 @@ google-cloud-speech
 oauth2client
 simpleaudio
 pyaudio
+google-auth

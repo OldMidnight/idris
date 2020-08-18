@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 TRIGGERS = ['hey Idris', 'hey interest', 'hey address']
 
 #  Structure: {trigger_string: aknowledgement_response_index}
