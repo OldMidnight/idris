@@ -11,8 +11,10 @@ setup(
           'SpeechRecognition',
           'google-cloud-speech',
           'oauth2client',
-          'simpleaudio',
+          'playsound',
           'pyaudio',
-          'google-auth'
+          'google-auth',
+          'google-cloud-texttospeech',
+          'python3-gst-1.0'
         ],
     )

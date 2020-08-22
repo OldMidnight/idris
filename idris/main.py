@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import os
 import speech_recognition as sr
-import simpleaudio as sa
+from playsound import playsound
 from time import sleep
 from random import randint
 from idris.utils.timer import RepeatingTimer
 from idris.utils.triggers import *
 from idris.utils.responses import *
-from idris.utils.services import gcloud_json_credentials_path, MissingDetailsException, CalendarService
-from idris.date_time import idris_date_time
+from idris.utils.services import gcloud_json_credentials_path, MissingDetailsException, CalendarService, TTSService
+from idris.debrief import debrief
 
 def debrief_trigger_filter(debrief):
     return debrief
@@ -24,6 +24,7 @@ class Idris():
         self.stop_listening = None
         self.playing_response = False
         self.calendar = CalendarService()
+        self.tts = TTSService()
         with open(gcloud_json_credentials_path, 'r') as f:
             self.credentials = f.read()
 
@@ -48,8 +49,7 @@ class Idris():
         # DEBRIEF TRIGGER
         elif recognise_trigger(transcript, list(map(debrief_trigger_filter, DEBREIEF_TRIGGERS)))[0] and confidence >= 0.8 and self.idris_triggered:
             self.play_response(ACKNOWLEDGEMENT_RESPONSES[DEBREIEF_TRIGGERS[transcript]], True)
-            self.play_response(idris_date_time())
-            self.play_response(self.calendar.idris_calendar_brief())
+            self.speak(text=debrief(self.calendar))
         # GRATITUDE TRIGGER
         elif recognise_trigger(transcript, GRATITUDE_TRIGGERS)[0] and confidence >= 0.8 and self.idris_triggered:
             self.play_response(GRATITUDE_RESPONSES[randint(0,1)])
@@ -93,6 +93,10 @@ class Idris():
                 pass
             sleep(0.5)
 
+    def speak(self, text=None, ssml=None, **kwargs):
+        self.tts.synthesise(text, ssml)
+        self.play_response(SYNTHESIZED_RESPONSE, kwargs)
+
     def reset_idris_trigger_state(self):
         self.idris_triggered = False
 
@@ -100,9 +104,7 @@ class Idris():
         print('playing response')
         # print(filename)
         self.playing_response = True
-        wave_obj = sa.WaveObject.from_wave_file(filename)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
+        playsound(filename)
         print('finished playing')
         if not dont_reset:
             self.idris_triggered = True

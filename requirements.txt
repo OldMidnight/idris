@@ -1,6 +1,8 @@
 SpeechRecognition
 google-cloud-speech
 oauth2client
-simpleaudio
+playsound
+python3-gst-1.0
 pyaudio
 google-auth
+google-cloud-texttospeech
