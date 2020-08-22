@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 import os
-import wave
 import calendar
 from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 from google.auth.transport.requests import Request
-from idris.date_time import hour_mapping
+from idris.debrief import hour_mapping
+from google.cloud import texttospeech
 
 CALENDAR_SCOPES = ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/calendar.events']
-gcloud_json_credentials_path = os.environ['GCLOUD_JSON_CREDENTIALS_PATH']
+gcloud_json_credentials_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
 service_account = os.environ['GCLOUD_SERVICE_ACCOUNT']
 
 class MissingDetailsException(Exception):
@@ -53,39 +53,18 @@ class CalendarService():
         events = list(map(format_events, self.get_events()))
 
         if len(events) == 0:
-            events_no_audio = '/home/fareed/Music/Calendar/none.wav'
+            text = 'You have no events lined up for today.'
         elif len(events) > 10:
-            events_no_audio = '/home/fareed/Music/Numbers/lots.wav'
+            text = 'Looks like a busy day ahead as you have lots of events lined up.'
         else:
-            events_no_audio = f'/home/fareed/Music/Numbers/{len(events)}.wav'
-
-        you_have_audio = '/home/fareed/Music/Calendar/you_got.wav'
-        events_today_audio = '/home/fareed/Music/Calendar/events_today.wav'
-        next_event_audio = '/home/fareed/Music/Calendar/next_event.wav'
+            text = f'You have {len(events)} events lined up for today.'
 
         if len(events) > 0:
             next_event = events[0]
             hour = int(next_event[0])
-            hour_audio = f'/home/fareed/Music/Date_Time/time_{hour_mapping[hour][0]}.wav'
-            minute_audio = f'/home/fareed/Music/Date_Time/minute_{next_event[1]}.wav' if next_event[1] != '0' else '/home/fareed/Music/Date_Time/o_clock.wav'
-            input_files = [you_have_audio, events_no_audio, events_today_audio, next_event_audio, hour_audio, minute_audio, f'/home/fareed/Music/Date_Time/{hour_mapping[hour][1]}.wav']
-        else:
-            input_files = [you_have_audio, events_no_audio, events_today_audio]
-        output_file = '/home/fareed/Music/records/calendar_debrief.wav'
+            text = f"{text} You're next event is at {hour_mapping[hour][0]}:{next_event[1]} {hour_mapping[hour][1]}."
 
-        data = []
-        for input_file in input_files:
-            w = wave.open(input_file, 'rb')
-            data.append([w.getparams(), w.readframes(w.getnframes())])
-            w.close()
-
-        output = wave.open(output_file, 'wb')
-        output.setparams(data[0][0])
-        for i in range(len(data)):
-            output.writeframes(data[i][1])
-        output.close()
-
-        return output_file
+        return text
 
     def get_events(self):
         now = datetime.now()
@@ -169,3 +148,22 @@ class CalendarService():
         }
         self.service.events().insert(calendarId='fareedidris20@gmail.com', body=event).execute()
         print('Event Created')
+
+class TTSService():
+    def __init__(self):
+        self.client = texttospeech.TextToSpeechClient()
+    
+    def synthesise(self, text=None, ssml=None, filename="output"):
+        synthesis_input = texttospeech.SynthesisInput(text=text, ssml=ssml)
+        voice = texttospeech.VoiceSelectionParams(
+            language_code="en-US", name="en-US-Wavenet-J"
+        )
+        audio_config = texttospeech.AudioConfig(
+            audio_encoding=texttospeech.AudioEncoding.MP3
+        )
+        response = self.client.synthesize_speech(
+            input=synthesis_input, voice=voice, audio_config=audio_config
+        )
+        with open(f'/home/fareed/Music/records/{filename}.mp3' , "wb") as out:
+            out.write(response.audio_content)
+
