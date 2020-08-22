@@ -7,9 +7,8 @@ from random import randint
 from idris.utils.timer import RepeatingTimer
 from idris.utils.triggers import *
 from idris.utils.responses import *
-from idris.utils.services import gcloud_json_credentials_path
+from idris.utils.services import gcloud_json_credentials_path, MissingDetailsException, CalendarService
 from idris.date_time import idris_date_time
-from idris.idris_calendar import idris_calendar_brief
 
 def debrief_trigger_filter(debrief):
     return debrief
@@ -17,11 +16,14 @@ def debrief_trigger_filter(debrief):
 class Idris():
     def __init__(self):
         self.recognizer = sr.Recognizer()
+        self.recognizer.pause_threshold = 0.5
+        self.recognizer.energy_threshold = 500
         self.mic = sr.Microphone()
         self.idris_triggered = False
         self.idris_reset_trigger = RepeatingTimer(20, self.reset_idris_trigger_state)
         self.stop_listening = None
         self.playing_response = False
+        self.calendar = CalendarService()
         with open(gcloud_json_credentials_path, 'r') as f:
             self.credentials = f.read()
 
@@ -38,26 +40,52 @@ class Idris():
         # print(self.idris_triggered)
 
         # INITIAL TRIGGER
-        if transcript in TRIGGERS and confidence >= 0.5 and not self.idris_triggered:
+        if recognise_trigger(transcript, TRIGGERS)[0] and confidence >= 0.5 and not self.idris_triggered:
             self.play_response(TRIGGER_RESPONSE)
         # IF TRIGGER WORD IS CALLED AGAIN BUT IDRIS IS STILL LISTENING
-        elif transcript in TRIGGERS and confidence >= 0.5 and self.idris_triggered:
+        elif recognise_trigger(transcript, TRIGGERS)[0] and confidence >= 0.5 and self.idris_triggered:
             self.play_response(LISTENING_RESPONSE)
         # DEBRIEF TRIGGER
-        elif transcript in DEBREIEF_TRIGGERS and confidence >= 0.8 and self.idris_triggered:
+        elif recognise_trigger(transcript, list(map(debrief_trigger_filter, DEBREIEF_TRIGGERS)))[0] and confidence >= 0.8 and self.idris_triggered:
             self.play_response(ACKNOWLEDGEMENT_RESPONSES[DEBREIEF_TRIGGERS[transcript]], True)
             self.play_response(idris_date_time())
-            self.play_response(idris_calendar_brief())
+            self.play_response(self.calendar.idris_calendar_brief())
         # GRATITUDE TRIGGER
-        elif transcript in GRATITUDE_TRIGGERS and confidence >= 0.8 and self.idris_triggered:
+        elif recognise_trigger(transcript, GRATITUDE_TRIGGERS)[0] and confidence >= 0.8 and self.idris_triggered:
             self.play_response(GRATITUDE_RESPONSES[randint(0,1)])
+        # CALENDAR TRIGGER
+        elif recognise_trigger(transcript, CALENDAR_EVENT_TRIGGERS)[0] and confidence >= 0.8 and self.idris_triggered:
+            calendar_args = recognise_trigger(transcript, CALENDAR_EVENT_TRIGGERS)
+            try:
+                self.calendar.handle_trigger(calendar_args[1], calendar_args[2])
+                self.play_response(EVENT_CREATED_RESPONSE)
+            except MissingDetailsException as e:
+                if e.args[0] == 'summary':
+                    self.play_response(EVENT_NAME_RESPONSE, dont_reset=True)
+                    print('listening for event name...')
+                    with self.mic as source: audio = self.recognizer.listen(source, phrase_time_limit=10)
+                    try:
+                        data = self.recognizer.recognize_google_cloud(audio_data=audio, credentials_json=self.credentials, show_all=True, preferred_phrases=['call it'])
+                        try:
+                            transcript = data['results'][0]['alternatives'][0]['transcript']
+                        except KeyError as e:
+                            transcript = ''
+                        try:
+                            self.calendar.handle_trigger(calendar_args[1], calendar_args[2], event_name=transcript)
+                            self.play_response(EVENT_CREATED_RESPONSE)
+                        except:
+                            self.play_response(UNRECOGNIZED_RESPONSE)
+                    except:
+                        self.play_response(UNRECOGNIZED_RESPONSE)
+                else:
+                    self.play_response(UNRECOGNIZED_RESPONSE)
 
     def listen(self):
         with self.mic as source:
             self.recognizer.adjust_for_ambient_noise(source)
         while True:
             print('listening...')
-            with self.mic as source: audio = self.recognizer.listen(source)
+            with self.mic as source: audio = self.recognizer.listen(source, phrase_time_limit=10)
             try:
                 data = self.recognizer.recognize_google_cloud(audio_data=audio, credentials_json=self.credentials, show_all=True, preferred_phrases=TRIGGERS + list(map(debrief_trigger_filter, DEBREIEF_TRIGGERS)) + GRATITUDE_TRIGGERS)
                 self.process_data(data)
